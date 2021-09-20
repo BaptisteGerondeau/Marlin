@@ -47,7 +47,7 @@ MarlinUI ui;
 #endif
 
 #if ENABLED(DWIN_CREALITY_LCD)
-  #include "e3v2/creality/dwin.h"
+  #include "e3v2/creality/creality_dwin.h"
 #endif
 
 #if ENABLED(LCD_PROGRESS_BAR) && !IS_TFTGLCD_PANEL
@@ -88,17 +88,6 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
       return_to_status();
       refresh();
     }
-  }
-#endif
-
-#if HAS_LCD_BRIGHTNESS
-  uint8_t MarlinUI::brightness = DEFAULT_LCD_BRIGHTNESS;
-  bool MarlinUI::backlight = true;
-
-  void MarlinUI::set_brightness(const uint8_t value) {
-    backlight = !!value;
-    if (backlight) brightness = constrain(value, MIN_LCD_BRIGHTNESS, MAX_LCD_BRIGHTNESS);
-    // Set brightness on enabled LCD here
   }
 #endif
 
@@ -168,6 +157,10 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
 
   #if HAS_POWER_MONITOR
     #include "../feature/power_monitor.h"
+  #endif
+
+  #if ENABLED(PSU_CONTROL) && defined(LED_BACKLIGHT_TIMEOUT)
+    #include "../feature/power.h"
   #endif
 
   #if HAS_ENCODER_ACTION
@@ -838,8 +831,8 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
     static uint16_t max_display_update_time = 0;
     millis_t ms = millis();
 
-    #ifdef LED_BACKLIGHT_TIMEOUT
-      leds.update_timeout(powersupply_on);
+    #if ENABLED(PSU_CONTROL) && defined(LED_BACKLIGHT_TIMEOUT)
+      leds.update_timeout(powerManager.psu_on);
     #endif
 
     #if HAS_LCD_MENU
@@ -988,8 +981,8 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
 
           refresh(LCDVIEW_REDRAW_NOW);
 
-          #ifdef LED_BACKLIGHT_TIMEOUT
-            if (!powersupply_on) leds.reset_timeout(ms);
+          #if ENABLED(PSU_CONTROL) && defined(LED_BACKLIGHT_TIMEOUT)
+            if (!powerManager.psu_on) leds.reset_timeout(ms);
           #endif
         }
 
@@ -1455,7 +1448,7 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
     #endif
 
     TERN_(EXTENSIBLE_UI, ExtUI::onStatusChanged(status_message));
-    TERN_(DWIN_CREALITY_LCD, DWIN_StatusChanged(status_message));
+    TERN_(DWIN_CREALITY_LCD, CrealityDWIN.Update_Status(status_message));
   }
 
   #if ENABLED(STATUS_MESSAGE_SCROLLING)
@@ -1497,6 +1490,13 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
     LCD_MESSAGEPGM(MSG_PRINT_ABORTED);
     TERN_(HAS_LCD_MENU, return_to_status());
   }
+
+  #if BOTH(PSU_CONTROL, PS_OFF_CONFIRM)
+    void MarlinUI::poweroff() {
+      queue.inject_P(PSTR("M81"));
+      goto_previous_screen();
+    }
+  #endif
 
   void MarlinUI::flow_fault() {
     LCD_ALERTMESSAGEPGM(MSG_FLOWMETER_FAULT);

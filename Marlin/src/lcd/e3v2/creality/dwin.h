@@ -21,249 +21,201 @@
  */
 #pragma once
 
-/**
- * DWIN by Creality3D
- */
+/********************************************************************************
+ * @file     dwin_lcd.h
+ * @author   LEO / Creality3D
+ * @date     2019/07/18
+ * @version  2.0.1
+ * @brief    迪文屏控制操作函数
+ ********************************************************************************/
 
-#include "dwin_lcd.h"
-#include "rotary_encoder.h"
-#include "../../../libs/BL24CXX.h"
+#include <stdint.h>
 
-#include "../../../inc/MarlinConfigPre.h"
+#define RECEIVED_NO_DATA         0x00
+#define RECEIVED_SHAKE_HAND_ACK  0x01
 
-#if ANY(HAS_HOTEND, HAS_HEATED_BED, HAS_FAN) && PREHEAT_COUNT
-  #define HAS_PREHEAT 1
-  #if PREHEAT_COUNT < 2
-    #error "Creality DWIN requires two material preheat presets."
-  #endif
-#endif
+#define FHONE                    0xAA
 
-enum processID : uint8_t {
-  // Process ID
-  MainMenu,
-  SelectFile,
-  Prepare,
-  Control,
-  Leveling,
-  PrintProcess,
-  AxisMove,
-  TemperatureID,
-  Motion,
-  Info,
-  Tune,
-  #if HAS_PREHEAT
-    PLAPreheat,
-    ABSPreheat,
-  #endif
-  MaxSpeed,
-  MaxSpeed_value,
-  MaxAcceleration,
-  MaxAcceleration_value,
-  MaxJerk,
-  MaxJerk_value,
-  Step,
-  Step_value,
-  HomeOff,
-  HomeOffX,
-  HomeOffY,
-  HomeOffZ,
+#define DWIN_SCROLL_UP   2
+#define DWIN_SCROLL_DOWN 3
 
-  // Last Process ID
-  Last_Prepare,
+#define DWIN_WIDTH  272
+#define DWIN_HEIGHT 480
 
-  // Advance Settings
-  AdvSet,
-  ProbeOff,
-  ProbeOffX,
-  ProbeOffY,
+/*-------------------------------------- System variable function --------------------------------------*/
 
-  // Back Process ID
-  Back_Main,
-  Back_Print,
+// Handshake (1: Success, 0: Fail)
+bool DWIN_Handshake(void);
 
-  // Date variable ID
-  Move_X,
-  Move_Y,
-  Move_Z,
-  #if HAS_HOTEND
-    Extruder,
-    ETemp,
-  #endif
-  Homeoffset,
-  #if HAS_HEATED_BED
-    BedTemp,
-  #endif
-  #if HAS_FAN
-    FanSpeed,
-  #endif
-  PrintSpeed,
+// Common DWIN startup
+void DWIN_Startup(void);
 
-  // Window ID
-  Print_window,
-  Popup_Window
-};
+// Set the backlight luminance
+//  luminance: (0x00-0xFF)
+void DWIN_Backlight_SetLuminance(const uint8_t luminance);
 
-extern uint8_t checkkey;
-extern float zprobe_zoffset;
-extern char print_filename[16];
+// Set screen display direction
+//  dir: 0=0°, 1=90°, 2=180°, 3=270°
+void DWIN_Frame_SetDir(uint8_t dir);
 
-extern millis_t dwin_heat_time;
+// Update display
+void DWIN_UpdateLCD(void);
 
-typedef struct {
-  #if HAS_HOTEND
-    celsius_t E_Temp = 0;
-  #endif
-  #if HAS_HEATED_BED
-    celsius_t Bed_Temp = 0;
-  #endif
-  #if HAS_FAN
-    int16_t Fan_speed = 0;
-  #endif
-  int16_t print_speed     = 100;
-  float Max_Feedspeed     = 0;
-  float Max_Acceleration  = 0;
-  float Max_Jerk_scaled   = 0;
-  float Max_Step_scaled   = 0;
-  float Move_X_scaled     = 0;
-  float Move_Y_scaled     = 0;
-  float Move_Z_scaled     = 0;
-  #if HAS_HOTEND
-    float Move_E_scaled   = 0;
-  #endif
-  float offset_value      = 0;
-  int8_t show_mode        = 0; // -1: Temperature control    0: Printing temperature
-  float Home_OffX_scaled  = 0;
-  float Home_OffY_scaled  = 0;
-  float Home_OffZ_scaled  = 0;
-  float Probe_OffX_scaled = 0;
-  float Probe_OffY_scaled = 0;
-} HMI_value_t;
+/*---------------------------------------- Drawing functions ----------------------------------------*/
 
-#define DWIN_CHINESE 123
-#define DWIN_ENGLISH 0
+// Clear screen
+//  color: Clear screen color
+void DWIN_Frame_Clear(const uint16_t color);
 
-typedef struct {
-  uint8_t language;
-  bool pause_flag:1;
-  bool pause_action:1;
-  bool print_finish:1;
-  bool done_confirm_flag:1;
-  bool select_flag:1;
-  bool home_flag:1;
-  bool heat_flag:1;  // 0: heating done  1: during heating
-  #if ENABLED(PREVENT_COLD_EXTRUSION)
-    bool ETempTooLow_flag:1;
-  #endif
-  #if HAS_LEVELING
-    bool leveling_offset_flag:1;
-  #endif
-  AxisEnum feedspeed_axis, acc_axis, jerk_axis, step_axis;
-} HMI_Flag_t;
+// Draw a point
+//  color: Line segment color
+//  width: point width   0x01-0x0F
+//  height: point height 0x01-0x0F
+//  x,y: upper left point
+void DWIN_Draw_Point(uint16_t color, uint8_t width, uint8_t height, uint16_t x, uint16_t y);
 
-extern HMI_value_t HMI_ValueStruct;
-extern HMI_Flag_t HMI_flag;
+// Draw a line
+//  color: Line segment color
+//  xStart/yStart: Start point
+//  xEnd/yEnd: End point
+void DWIN_Draw_Line(uint16_t color, uint16_t xStart, uint16_t yStart, uint16_t xEnd, uint16_t yEnd);
 
-// Show ICO
-void ICON_Print(bool show);
-void ICON_Prepare(bool show);
-void ICON_Control(bool show);
-void ICON_Leveling(bool show);
-void ICON_StartInfo(bool show);
+// Draw a Horizontal line
+//  color: Line segment color
+//  xStart/yStart: Start point
+//  xLength: Line Length
+inline void DWIN_Draw_HLine(uint16_t color, uint16_t xStart, uint16_t yStart, uint16_t xLength) {
+  DWIN_Draw_Line(color, xStart, yStart, xStart + xLength - 1, yStart);
+}
 
-void ICON_Setting(bool show);
-void ICON_Pause(bool show);
-void ICON_Continue(bool show);
-void ICON_Stop(bool show);
+// Draw a Vertical line
+//  color: Line segment color
+//  xStart/yStart: Start point
+//  yLength: Line Length
+inline void DWIN_Draw_VLine(uint16_t color, uint16_t xStart, uint16_t yStart, uint16_t yLength) {
+  DWIN_Draw_Line(color, xStart, yStart, xStart, yStart + yLength - 1);
+}
 
-#if HAS_HOTEND || HAS_HEATED_BED
-  // Popup message window
-  void DWIN_Popup_Temperature(const bool toohigh);
-#endif
+// Draw a rectangle
+//  mode: 0=frame, 1=fill, 2=XOR fill
+//  color: Rectangle color
+//  xStart/yStart: upper left point
+//  xEnd/yEnd: lower right point
+void DWIN_Draw_Rectangle(uint8_t mode, uint16_t color,
+                         uint16_t xStart, uint16_t yStart, uint16_t xEnd, uint16_t yEnd);
 
-#if HAS_HOTEND
-  void Popup_Window_ETempTooLow();
-#endif
+// Draw a box
+//  mode: 0=frame, 1=fill, 2=XOR fill
+//  color: Rectangle color
+//  xStart/yStart: upper left point
+//  xSize/ySize: box size
+inline void DWIN_Draw_Box(uint8_t mode, uint16_t color, uint16_t xStart, uint16_t yStart, uint16_t xSize, uint16_t ySize) {
+  DWIN_Draw_Rectangle(mode, color, xStart, yStart, xStart + xSize - 1, yStart + ySize - 1);
+}
 
-void Popup_Window_Resume();
-void Popup_Window_Home(const bool parking=false);
-void Popup_Window_Leveling();
+//Color: color
+//x: upper left point
+//y: bottom right point
+void DWIN_Draw_DegreeSymbol(uint16_t Color, uint16_t x, uint16_t y);
 
-void Goto_PrintProcess();
-void Goto_MainMenu();
+// Move a screen area
+//  mode: 0, circle shift; 1, translation
+//  dir: 0=left, 1=right, 2=up, 3=down
+//  dis: Distance
+//  color: Fill color
+//  xStart/yStart: upper left point
+//  xEnd/yEnd: bottom right point
+void DWIN_Frame_AreaMove(uint8_t mode, uint8_t dir, uint16_t dis,
+                         uint16_t color, uint16_t xStart, uint16_t yStart, uint16_t xEnd, uint16_t yEnd);
 
-// Variable control
-void HMI_Move_X();
-void HMI_Move_Y();
-void HMI_Move_Z();
-void HMI_Move_E();
+/*---------------------------------------- Text related functions ----------------------------------------*/
 
-void HMI_Zoffset();
+// Draw a string
+//  widthAdjust: true=self-adjust character width; false=no adjustment
+//  bShow: true=display background color; false=don't display background color
+//  size: Font size
+//  color: Character color
+//  bColor: Background color
+//  x/y: Upper-left coordinate of the string
+//  *string: The string
+void DWIN_Draw_String(bool widthAdjust, bool bShow, uint8_t size,
+                      uint16_t color, uint16_t bColor, uint16_t x, uint16_t y, const char * string);
 
-#if HAS_HOTEND
-  void HMI_ETemp();
-#endif
-#if HAS_HEATED_BED
-  void HMI_BedTemp();
-#endif
-#if HAS_FAN
-  void HMI_FanSpeed();
-#endif
+class __FlashStringHelper;
 
-void HMI_PrintSpeed();
+inline void DWIN_Draw_String(bool widthAdjust, bool bShow, uint8_t size, uint16_t color, uint16_t bColor, uint16_t x, uint16_t y, const __FlashStringHelper *title) {
+  // Note that this won't work on AVR. This is for 32-bit systems only!
+  // Are __FlashStringHelper versions worth keeping?
+  DWIN_Draw_String(widthAdjust, bShow, size, color, bColor, x, y, reinterpret_cast<const char*>(title));
+}
 
-void HMI_MaxFeedspeedXYZE();
-void HMI_MaxAccelerationXYZE();
-void HMI_MaxJerkXYZE();
-void HMI_StepXYZE();
-void HMI_SetLanguageCache();
+// Draw a positive integer
+//  bShow: true=display background color; false=don't display background color
+//  zeroFill: true=zero fill; false=no zero fill
+//  zeroMode: 1=leading 0 displayed as 0; 0=leading 0 displayed as a space
+//  size: Font size
+//  color: Character color
+//  bColor: Background color
+//  iNum: Number of digits
+//  x/y: Upper-left coordinate
+//  value: Integer value
+void DWIN_Draw_IntValue(uint8_t bShow, bool zeroFill, uint8_t zeroMode, uint8_t size, uint16_t color,
+                          uint16_t bColor, uint8_t iNum, uint16_t x, uint16_t y, uint16_t value);
 
-void update_variable();
-void DWIN_Draw_Signed_Float(uint8_t size, uint16_t bColor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value);
+// Draw a floating point number
+//  bShow: true=display background color; false=don't display background color
+//  zeroFill: true=zero fill; false=no zero fill
+//  zeroMode: 1=leading 0 displayed as 0; 0=leading 0 displayed as a space
+//  size: Font size
+//  color: Character color
+//  bColor: Background color
+//  iNum: Number of whole digits
+//  fNum: Number of decimal digits
+//  x/y: Upper-left point
+//  value: Float value
+void DWIN_Draw_FloatValue(uint8_t bShow, bool zeroFill, uint8_t zeroMode, uint8_t size, uint16_t color,
+                            uint16_t bColor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value);
 
-// SD Card
-void HMI_SDCardInit();
-void HMI_SDCardUpdate();
+/*---------------------------------------- Picture related functions ----------------------------------------*/
 
-// Main Process
-void Icon_print(bool value);
-void Icon_control(bool value);
-void Icon_temperature(bool value);
-void Icon_leveling(bool value);
+// Draw JPG and cached in #0 virtual display area
+// id: Picture ID
+void DWIN_JPG_ShowAndCache(const uint8_t id);
 
-// Other
-void Draw_Status_Area(const bool with_update); // Status Area
-void HMI_StartFrame(const bool with_update);   // Prepare the menu view
-void HMI_MainMenu();    // Main process screen
-void HMI_SelectFile();  // File page
-void HMI_Printing();    // Print page
-void HMI_Prepare();     // Prepare page
-void HMI_Control();     // Control page
-void HMI_Leveling();    // Level the page
-void HMI_AxisMove();    // Axis movement menu
-void HMI_Temperature(); // Temperature menu
-void HMI_Motion();      // Sports menu
-void HMI_Info();        // Information menu
-void HMI_Tune();        // Adjust the menu
+// Draw an Icon
+//  libID: Icon library ID
+//  picID: Icon ID
+//  x/y: Upper-left point
+void DWIN_ICON_Show(uint8_t libID, uint8_t picID, uint16_t x, uint16_t y);
 
-#if HAS_PREHEAT
-  void HMI_PLAPreheatSetting(); // PLA warm-up setting
-  void HMI_ABSPreheatSetting(); // ABS warm-up setting
-#endif
+// Unzip the JPG picture to a virtual display area
+//  n: Cache index
+//  id: Picture ID
+void DWIN_JPG_CacheToN(uint8_t n, uint8_t id);
 
-void HMI_MaxSpeed();        // Maximum speed submenu
-void HMI_MaxAcceleration(); // Maximum acceleration submenu
-void HMI_MaxJerk();         // Maximum jerk speed submenu
-void HMI_Step();            // Transmission ratio
+// Unzip the JPG picture to virtual display area #1
+//  id: Picture ID
+inline void DWIN_JPG_CacheTo1(uint8_t id) { DWIN_JPG_CacheToN(1, id); }
 
-void HMI_Init();
-void DWIN_Update();
-void EachMomentUpdate();
-void DWIN_HandleScreen();
-void DWIN_StatusChanged(const char *text);
-void DWIN_StatusChanged_P(PGM_P const pstr);
-void DWIN_Draw_Checkbox(uint16_t color, uint16_t bcolor, uint16_t x, uint16_t y, bool mode /* = false*/);
+// Copy area from virtual display area to current screen
+//  cacheID: virtual area number
+//  xStart/yStart: Upper-left of virtual area
+//  xEnd/yEnd: Lower-right of virtual area
+//  x/y: Screen paste point
+void DWIN_Frame_AreaCopy(uint8_t cacheID, uint16_t xStart, uint16_t yStart,
+                         uint16_t xEnd, uint16_t yEnd, uint16_t x, uint16_t y);
 
-inline void DWIN_StartHoming() { HMI_flag.home_flag = true; }
+// Animate a series of icons
+//  animID: Animation ID  up to 16
+//  animate: animation on or off
+//  libID: Icon library ID
+//  picIDs: Icon starting ID
+//  picIDe: Icon ending ID
+//  x/y: Upper-left point
+//  interval: Display time interval, unit 10mS
+void DWIN_ICON_Animation(uint8_t animID, bool animate, uint8_t libID, uint8_t picIDs,
+                         uint8_t picIDe, uint16_t x, uint16_t y, uint16_t interval);
 
-void DWIN_CompletedHoming();
-void DWIN_CompletedLeveling();
+// Animation Control
+//  state: 16 bits, each bit is the state of an animation id
+void DWIN_ICON_AnimationControl(uint16_t state);

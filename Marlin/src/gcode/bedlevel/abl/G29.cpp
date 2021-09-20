@@ -60,10 +60,6 @@
   #include "../../../lcd/extui/ui_api.h"
 #endif
 
-#if ENABLED(DWIN_CREALITY_LCD)
-  #include "../../../lcd/e3v2/creality/dwin.h"
-#endif
-
 #if HAS_MULTI_HOTEND
   #include "../../../module/tool_change.h"
 #endif
@@ -886,10 +882,6 @@ G29_TYPE GcodeSuite::G29() {
     if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("Z Probe End Script: ", Z_PROBE_END_SCRIPT);
     planner.synchronize();
     process_subcommands_now_P(PSTR(Z_PROBE_END_SCRIPT));
-  #endif
-
-  #if ENABLED(DWIN_CREALITY_LCD)
-    DWIN_CompletedLeveling();
   #endif
 
   report_current_position();

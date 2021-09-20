@@ -730,7 +730,7 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
       #endif
 
       #if HAS_LCD_BRIGHTNESS
-        case 256: M256(); break;                                  // M256: Set LCD brightness
+        case 251: M251(); break;                                  // M251: Set LCD brightness
       #endif
 
       #if ENABLED(EXPERIMENTAL_I2CBUS)
